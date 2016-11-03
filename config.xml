@@ -1,0 +1,117 @@
+<supv>
+  <!-- Producers -->
+  <import name="zfs">
+    <node id="zpool" class="Zpool" />
+  </import>
+  <import name="proc">
+    <node id="diskstats" class="Diskstats" freq="0.1" />
+  </import>
+  <!-- Filters -->
+  <import name="filter">
+    <node id="zpool-grep-scrub" class="Grep" regex="^ scrub:" nonmatch="True" />
+    <node id="zpool-filter-repaired" class="SearchReplace" regex="[0-9.]+[KM] repaired" replace="" />
+    <node id="diskstats-sda-iotime" class="Getitem" item="io-ms" />
+    <node id="diskstats-sda-rate" class="RateOfChange" />
+    <node id="diskstats-sda-trunc" class="TruncLinear" slope="0.25" maxout="255" />
+    <node id="diskstats-sdb-iotime" class="Getitem" item="io-ms" />
+    <node id="diskstats-sdb-rate" class="RateOfChange" />
+    <node id="diskstats-sdb-trunc" class="TruncLinear" slope="0.25" maxout="255" />
+    <node id="diskstats-sdc-iotime" class="Getitem" item="io-ms" />
+    <node id="diskstats-sdc-rate" class="RateOfChange" />
+    <node id="diskstats-sdc-trunc" class="TruncLinear" slope="0.25" maxout="255" />
+    <node id="diskstats-sdd-iotime" class="Getitem" item="io-ms" />
+    <node id="diskstats-sdd-rate" class="RateOfChange" />
+    <node id="diskstats-sdd-trunc" class="TruncLinear" slope="0.25" maxout="255" />
+  
+    <node id="zpool-sda-dev" class="Getitem" item="pci-0000:00:1f.2-scsi-0:0:0:0-part4" /> 
+    <node id="zpool-sda-i" class="Grep" regex="ONLINE" nonmatch="True" />
+    <node id="zpool-sda-trunc" class="TruncLinear" slope="128" maxout="255" /> 
+    <node id="zpool-sdb-dev" class="Getitem" item="pci-0000:00:1f.2-scsi-1:0:0:0-part1" />
+    <node id="zpool-sdb-i" class="Grep" regex="ONLINE" nonmatch="True" />
+    <node id="zpool-sdb-trunc" class="TruncLinear" slope="128" maxout="255" />
+    <node id="zpool-sdc-dev" class="Getitem" item="pci-0000:00:1f.2-scsi-2:0:0:0-part1" />
+    <node id="zpool-sdc-i" class="Grep" regex="ONLINE" nonmatch="True" />
+    <node id="zpool-sdc-trunc" class="TruncLinear" slope="128" maxout="255" />
+    <node id="zpool-sdd-dev" class="Getitem" item="pci-0000:00:1f.2-scsi-3:0:0:0-part4" />
+    <node id="zpool-sdd-i" class="Grep" regex="ONLINE" nonmatch="True" />
+    <node id="zpool-sdd-trunc" class="TruncLinear" slope="128" maxout="255" />
+
+    <node id="zpool-health-grep" class="Grep" regex="No known data errors" />
+    <node id="zpool-health-trunc" class="TruncLinear" slope="128" maxout="255" />
+  </import>
+  <!-- Consumers -->
+  <import name="leds">
+    <node id="hdd0-blue" class="Led" name="hpex49x:blue:hdd0" />
+    <node id="hdd1-blue" class="Led" name="hpex49x:blue:hdd1" />
+    <node id="hdd2-blue" class="Led" name="hpex49x:blue:hdd2" />
+    <node id="hdd3-blue" class="Led" name="hpex49x:blue:hdd3" />
+    <node id="hdd0-red" class="Led" name="hpex49x:red:hdd0" />
+    <node id="hdd1-red" class="Led" name="hpex49x:red:hdd1" />
+    <node id="hdd2-red" class="Led" name="hpex49x:red:hdd2" />
+    <node id="hdd3-red" class="Led" name="hpex49x:red:hdd3" />
+    <node id="health-blue" class="Led" name="hpex49x:blue:health" />
+  </import>
+  <import name="mail">
+    <node id="email" class="Email" to_addr="karl@gutwin.org" />
+  </import>
+
+  <!-- if I want to do subtrees ...
+  <subtree id="diskstats-led">
+    <import name="filter">
+      <node id="iotime" class="Getitem" item="io-ms" />
+      <node id="rate" class="RateOfChange" />
+      <node id="trunc" class="TruncLinear" slope="0.25" maxout="255" />
+    </import>
+    <connection source="SUBTREE-IN" field="all" destination="iotime" />
+    <connection source="iotime" field="output" destination="rate" />
+    <connection source="rate" field="output" destination="trunc" />
+    <connection source="trunc" field="output" destination="SUBTREE-OUT" />
+  </subtree>
+  -->
+
+  <!-- Send mail if the output of zpool status changes. -->
+  <connection source="zpool" field="text" destination="zpool-grep-scrub" />
+  <connection source="zpool-grep-scrub" field="text" destination="zpool-filter-repaired" />
+  <connection source="zpool-filter-repaired" field="text" destination="email" />
+
+  <!-- Flash hard drive LEDs with disk activity -->
+  <connection source="diskstats" field="pci-0000:00:1f.2-scsi-0:0:0:0" destination="diskstats-sda-iotime" />
+  <connection source="diskstats-sda-iotime" field="output" destination="diskstats-sda-rate" />
+  <connection source="diskstats-sda-rate" field="output" destination="diskstats-sda-trunc" />
+  <connection source="diskstats-sda-trunc" field="output" destination="hdd0-blue" />
+  <connection source="diskstats" field="pci-0000:00:1f.2-scsi-1:0:0:0" destination="diskstats-sdb-iotime" />
+  <connection source="diskstats-sdb-iotime" field="output" destination="diskstats-sdb-rate" />
+  <connection source="diskstats-sdb-rate" field="output" destination="diskstats-sdb-trunc" />
+  <connection source="diskstats-sdb-trunc" field="output" destination="hdd1-blue" />
+  <connection source="diskstats" field="pci-0000:00:1f.2-scsi-2:0:0:0" destination="diskstats-sdc-iotime" />
+  <connection source="diskstats-sdc-iotime" field="output" destination="diskstats-sdc-rate" />
+  <connection source="diskstats-sdc-rate" field="output" destination="diskstats-sdc-trunc" />
+  <connection source="diskstats-sdc-trunc" field="output" destination="hdd2-blue" />
+  <connection source="diskstats" field="pci-0000:00:1f.2-scsi-3:0:0:0" destination="diskstats-sdd-iotime" />
+  <connection source="diskstats-sdd-iotime" field="output" destination="diskstats-sdd-rate" />
+  <connection source="diskstats-sdd-rate" field="output" destination="diskstats-sdd-trunc" />
+  <connection source="diskstats-sdd-trunc" field="output" destination="hdd3-blue" />
+
+  <!-- set hdd red leds on error -->
+  <connection source="zpool" field="devices" destination="zpool-sda-dev" />
+  <connection source="zpool-sda-dev" field="output" destination="zpool-sda-i" />
+  <connection source="zpool-sda-i" field="num_matches" destination="zpool-sda-trunc" />
+  <connection source="zpool-sda-trunc" field="output" destination="hdd0-red" />
+  <connection source="zpool" field="devices" destination="zpool-sdb-dev" />
+  <connection source="zpool-sdb-dev" field="output" destination="zpool-sdb-i" />
+  <connection source="zpool-sdb-i" field="num_matches" destination="zpool-sdb-trunc" />
+  <connection source="zpool-sdb-trunc" field="output" destination="hdd1-red" />
+  <connection source="zpool" field="devices" destination="zpool-sdc-dev" />
+  <connection source="zpool-sdc-dev" field="output" destination="zpool-sdc-i" />
+  <connection source="zpool-sdc-i" field="num_matches" destination="zpool-sdc-trunc" />
+  <connection source="zpool-sdc-trunc" field="output" destination="hdd2-red" />
+  <connection source="zpool" field="devices" destination="zpool-sdd-dev" />
+  <connection source="zpool-sdd-dev" field="output" destination="zpool-sdd-i" />
+  <connection source="zpool-sdd-i" field="num_matches" destination="zpool-sdd-trunc" />
+  <connection source="zpool-sdd-trunc" field="output" destination="hdd3-red" />
+
+  <!-- set health light blue if all is well -->
+  <connection source="zpool" field="errors" destination="zpool-health-grep" />  
+  <connection source="zpool-health-grep" field="num_matches" destination="zpool-health-trunc" />
+  <connection source="zpool-health-trunc" field="output" destination="health-blue" />
+</supv>
